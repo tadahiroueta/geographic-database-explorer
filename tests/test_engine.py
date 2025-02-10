@@ -7,60 +7,18 @@ import p2app.engine as engine
 import p2app.events as events
 
 
+DATABASE_FILENAME = "../airport.db"
+DATABASE_PATH = pathlib.Path(DATABASE_FILENAME)
+
+
 class MyTestCase(unittest.TestCase):
 
     @classmethod
-    def setUpDatabase(cls):
-        """
-        Creates a database, or if already existing, clears it.
-        """
-        DATABASE_FILENAME = "test_database.db"
-
-        cls._database_path = pathlib.Path(DATABASE_FILENAME)
-        cls._connection = sqlite3.connect(DATABASE_FILENAME)
-        cls._cursor = cls._connection.cursor()
-
-        # foreign key constraint configuration
-        cls._cursor.execute("PRAGMA foreign_keys = ON;")
-
-        # dropping all tables
-        cls._cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        existing_tables = cls._cursor.fetchall()
-        for table in existing_tables:
-            name = table[0]
-            cls._cursor.execute(f"DROP TABLE { name };")
-
-        cls._connection.commit()
-
-    @classmethod
     def setUpClass(cls):
-        cls.setUpDatabase()
         cls._engine = engine.Engine()
 
-    @classmethod
-    def tearDownClass(cls):
-        cls._cursor.close()
-        cls._connection.close()
-
-    @contextmanager
-    def create_table(self, table_name: str, injection: str):
-        """
-        Creates a table temporarily.
-
-        Args:
-            table_name (str): Name of the table to create.
-            injection (str): SQL injection to create a table.
-        """
-        self._cursor.execute(injection)
-        self._connection.commit()
-
-        yield
-
-        self._cursor.execute(f"DROP TABLE { table_name };")
-        self._connection.commit()
-
     def test_open_database(self):
-        post_process = self._engine.process_event(events.OpenDatabaseEvent(self._database_path))
+        post_process = self._engine.process_event(events.OpenDatabaseEvent(DATABASE_PATH))
         self.assertEqual(type(next(post_process)), events.DatabaseOpenedEvent,
                          "Failed to open database.")
 
@@ -82,7 +40,7 @@ class MyTestCase(unittest.TestCase):
     def test_close_database(self):
         RANDOM_INJECTION = "SELECT * FROM sqlite_master;"
 
-        for _ in self._engine.process_event(events.OpenDatabaseEvent(self._database_path)):
+        for _ in self._engine.process_event(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
         post_process = self._engine.process_event(events.CloseDatabaseEvent())
 
