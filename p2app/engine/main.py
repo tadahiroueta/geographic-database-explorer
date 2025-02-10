@@ -27,12 +27,14 @@ class Engine:
         """A generator function that processes one event sent from the user interface,
         yielding zero or more events in response."""
 
+        event_type = type(event)
+
         # application-level events
-        if type(event) == events.QuitInitiatedEvent:
+        if event_type == events.QuitInitiatedEvent:
             yield events.EndApplicationEvent()
             return
 
-        if type(event) == events.OpenDatabaseEvent:
+        if event_type == events.OpenDatabaseEvent:
             if not event.path().exists():
                 yield events.DatabaseOpenFailedEvent("Database does not exist.")
                 return
