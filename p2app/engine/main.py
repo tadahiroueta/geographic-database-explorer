@@ -45,3 +45,8 @@ class Engine:
             except sqlite3.Error as e:
                 yield events.DatabaseOpenFailedEvent("Failed to open database.")
             return
+
+        if event_type == events.CloseDatabaseEvent:
+            self._connection.close()
+            yield events.DatabaseClosedEvent()
+            return

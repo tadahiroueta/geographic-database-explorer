@@ -79,5 +79,17 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(type(next(post_process)), events.EndApplicationEvent,
                          "Failed to quit.")
 
+    def test_close_database(self):
+        RANDOM_INJECTION = "SELECT * FROM sqlite_master;"
+
+        for _ in self._engine.process_event(events.OpenDatabaseEvent(self._database_path)):
+            pass
+        post_process = self._engine.process_event(events.CloseDatabaseEvent())
+
+        self.assertEqual(type(next(post_process)), events.DatabaseClosedEvent,
+                         "Failed to send event for closing database.")
+        with self.assertRaises(sqlite3.ProgrammingError, msg="Failed to actually close database."):
+            self._engine._connection.execute(RANDOM_INJECTION)
+
 if __name__ == '__main__':
     unittest.main()
