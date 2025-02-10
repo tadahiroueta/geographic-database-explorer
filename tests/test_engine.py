@@ -74,5 +74,10 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(type(next(post_process)), events.DatabaseOpenFailedEvent,
                          "Opened non existent database.")
 
+    def test_quit(self):
+        post_process = self._engine.process_event(events.QuitInitiatedEvent())
+        self.assertEqual(type(next(post_process)), events.EndApplicationEvent,
+                         "Failed to quit.")
+
 if __name__ == '__main__':
     unittest.main()

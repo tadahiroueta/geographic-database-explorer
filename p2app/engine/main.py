@@ -8,6 +8,7 @@
 import sqlite3
 
 import p2app.events as events
+from p2app.events import QuitInitiatedEvent
 
 
 class Engine:
@@ -25,6 +26,11 @@ class Engine:
     def process_event(self, event):
         """A generator function that processes one event sent from the user interface,
         yielding zero or more events in response."""
+
+        # application-level events
+        if type(event) == events.QuitInitiatedEvent:
+            yield events.EndApplicationEvent()
+            return
 
         if type(event) == events.OpenDatabaseEvent:
             if not event.path().exists():
