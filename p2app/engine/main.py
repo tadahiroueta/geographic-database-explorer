@@ -31,6 +31,10 @@ class Engine:
             events.LoadContinentEvent: self._handle_load_continent,
             events.SaveNewContinentEvent: self._handle_save_new_continent,
             events.SaveContinentEvent: self._handle_save_continent,
+            events.StartCountrySearchEvent: self._handle_search_countries,
+            events.LoadCountryEvent: self._handle_load_country,
+            events.SaveNewCountryEvent: self._handle_save_new_country,
+            events.SaveCountryEvent: self._handle_save_country,
         }
 
     def __del__(self):
@@ -164,6 +168,99 @@ class Engine:
             { "id": continent_id, "code": code, "name": name })
 
         yield events.ContinentSavedEvent(event.continent())
+
+        self._connection.commit()
+        cursor.close()
+
+    def _handle_search_countries(self, event: events.StartCountrySearchEvent) \
+            -> Generator[events.CountrySearchResultEvent]:
+        """Searches for countries by code or name."""
+
+        cursor = self._connection.cursor()
+
+        code = event.country_code().upper() if event.country_code() else None
+        name = event.name()
+
+        if code and name:
+            cursor.execute(
+                "SELECT * FROM country"
+                "    WHERE country_code = :code AND name LIKE :formatted_name",
+                { "code": code, "formatted_name": f"%{ name }%" })
+
+        elif code:
+            cursor.execute("SELECT * FROM country WHERE country_code = :code",
+                           { "code": code })
+
+        elif name:
+            cursor.execute("SELECT * FROM country WHERE name LIKE :formatted_name",
+                           { "formatted_name": f"%{ name }%" })
+
+        else:
+            cursor.execute("SELECT * FROM country")
+
+        for row in cursor:
+            yield events.CountrySearchResultEvent(events.Country(*row))
+
+        cursor.close()
+
+    def _handle_load_country(self, event: events.LoadCountryEvent) \
+            -> Generator[events.CountryLoadedEvent]:
+        """Loads a country by its ID."""
+
+        cursor = self._connection.cursor()
+        cursor.execute("SELECT * FROM country WHERE country_id = :id",
+                       {"id": event.country_id()})
+        country = events.Country(*cursor.fetchone())
+        yield events.CountryLoadedEvent(country)
+        cursor.close()
+
+    def _handle_save_new_country(self, event: events.SaveNewCountryEvent) \
+            -> Generator[Union[events.CountrySavedEvent, events.SaveCountryFailedEvent]]:
+        """Saves a new country to the database."""
+
+        country_id, code, name, continent_id, wikipedia_link, keywords = event.country()
+        cursor = self._connection.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO country (country_id, country_code, name, continent_id, wikipedia_link,"
+                "                     keywords)"
+                "   VALUES (:id, :code, :name, :continent_id, :wikipedia_link, :keywords)",
+                { "id": country_id, "code": code, "name": name, "continent_id": continent_id,
+                  "wikipedia_link": wikipedia_link, "keywords": keywords })
+
+        except sqlite3.IntegrityError as e:
+            print(e)
+            yield events.SaveCountryFailedEvent("Country ID duplicated.")
+
+        else:
+            yield events.CountrySavedEvent(event.country())
+
+        finally:
+            self._connection.commit()
+            cursor.close()
+
+    def _handle_save_country(self, event: events.SaveCountryEvent) \
+            -> Generator[Union[events.CountrySavedEvent, events.SaveCountryFailedEvent]]:
+        """Edits a country in the database."""
+
+        country_id, code, name, continent_id, wikipedia_link, keywords = event.country()
+        cursor = self._connection.cursor()
+
+        cursor.execute("SELECT country_id FROM country WHERE country_id = :id",
+                       { "id": country_id })
+        if not cursor.fetchone():
+            yield events.SaveCountryFailedEvent("Id does not match any country.")
+            return
+
+        cursor.execute(
+            "UPDATE country "
+            "   SET country_code = :code, name = :name, continent_id = :continent_id,"
+            "       wikipedia_link = :wikipedia_link, keywords = :keywords"
+            "   WHERE country_id = :id",
+            { "id": country_id, "code": code, "name": name, "continent_id": continent_id,
+              "wikipedia_link": wikipedia_link, "keywords": keywords })
+
+        yield events.CountrySavedEvent(event.country())
 
         self._connection.commit()
         cursor.close()
