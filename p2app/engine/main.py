@@ -42,12 +42,17 @@ class Engine:
     # event handlers
 
     # application-level events
-    def _handle_quit(self, event) -> Generator[events.EndApplicationEvent]:
+    def _handle_quit(self, event: events.QuitInitiatedEvent) \
+            -> Generator[events.EndApplicationEvent]:
+        """Quits the application."""
+
         yield events.EndApplicationEvent()
         return
 
-    def _handle_open_database(self, event) -> Generator[Union[events.DatabaseOpenedEvent,
-                                                              events.DatabaseOpenFailedEvent]]:
+    def _handle_open_database(self, event: events.OpenDatabaseEvent) \
+            -> Generator[Union[events.DatabaseOpenedEvent, events.DatabaseOpenFailedEvent]]:
+        """Opens the connection to the database file."""
+
         if not event.path().exists():
             yield events.DatabaseOpenFailedEvent("Database does not exist.")
             return
@@ -59,7 +64,10 @@ class Engine:
             yield events.DatabaseOpenFailedEvent("Failed to open database.")
         return
 
-    def _handle_close_database(self, event) -> Generator[events.DatabaseClosedEvent]:
+    def _handle_close_database(self, event: events.CloseDatabaseEvent) \
+            -> Generator[events.DatabaseClosedEvent]:
+        """Closes the connection to the database file."""
+
         self._connection.close()
         yield events.DatabaseClosedEvent()
         return
