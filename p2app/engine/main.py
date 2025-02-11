@@ -26,7 +26,8 @@ class Engine:
             events.QuitInitiatedEvent: self._handle_quit,
             events.OpenDatabaseEvent: self._handle_open_database,
             events.CloseDatabaseEvent: self._handle_close_database,
-            events.StartContinentSearchEvent: self._handle_search_continents
+            events.StartContinentSearchEvent: self._handle_search_continents,
+            events.LoadContinentEvent: self._handle_load_continent
         }
 
     def process_event(self, event):
@@ -48,7 +49,6 @@ class Engine:
         """Quits the application."""
 
         yield events.EndApplicationEvent()
-        return
 
     def _handle_open_database(self, event: events.OpenDatabaseEvent) \
             -> Generator[Union[events.DatabaseOpenedEvent, events.DatabaseOpenFailedEvent]]:
@@ -63,7 +63,6 @@ class Engine:
             yield events.DatabaseOpenedEvent(event.path())
         except sqlite3.Error as e:
             yield events.DatabaseOpenFailedEvent("Failed to open database.")
-        return
 
     def _handle_close_database(self, event: events.CloseDatabaseEvent) \
             -> Generator[events.DatabaseClosedEvent]:
@@ -71,7 +70,6 @@ class Engine:
 
         self._connection.close()
         yield events.DatabaseClosedEvent()
-        return
 
     def _handle_search_continents(self, event: events.StartContinentSearchEvent) \
             -> Generator[events.ContinentSearchResultEvent]:
@@ -101,4 +99,3 @@ class Engine:
 
         for row in cursor:
             yield events.ContinentSearchResultEvent(events.Continent(*row))
-        return
