@@ -79,22 +79,22 @@ class Engine:
 
         cursor = self._connection.cursor()
 
-        code = event.continent_code()
+        code = event.continent_code().upper() if event.continent_code() else None
         name = event.name()
 
         if code and name:
             cursor.execute(
                 "SELECT * FROM continent"
                 "    WHERE continent_code = :code AND name LIKE :formatted_name",
-                { "code": event.continent_code(), "formatted_name": f"%{ event.name() }%" })
+                { "code": code, "formatted_name": f"%{ name }%" })
 
         elif code:
             cursor.execute("SELECT * FROM continent WHERE continent_code = :code",
-                           { "code": event.continent_code() })
+                           { "code": code })
 
         elif name:
             cursor.execute("SELECT * FROM continent WHERE name LIKE :formatted_name",
-                           { "formatted_name": f"%{ event.name() }%" })
+                           { "formatted_name": f"%{ name }%" })
 
         else:
             cursor.execute("SELECT * FROM continent")
