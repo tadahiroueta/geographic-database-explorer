@@ -49,7 +49,6 @@ class MyTestCase(unittest.TestCase):
         with self.assertRaises(sqlite3.ProgrammingError, msg="Failed to actually close database."):
             self._engine._connection.execute(RANDOM_INJECTION)
 
-
     def test_search_one_continent_by_code_and_name(self):
         CONTINENT_ID = 1
         CONTINENT_CODE = "AF"
@@ -173,6 +172,48 @@ class MyTestCase(unittest.TestCase):
                          "Failed to yield a continent loaded event.")
         self.assertEqual(only_response.continent(), correct_continent,
                          "Failed to load the correct continent.")
+
+    def test_save_new_continent(self):
+        CONTINENT_ID = 10
+        CONTINENT_CODE = "ZZ"
+        CONTINENT_NAME = "New Continent"
+
+        new_continent = events.Continent(CONTINENT_ID, CONTINENT_CODE, CONTINENT_NAME)
+        delete_continent_injection = f"DELETE FROM continent WHERE continent_id = { CONTINENT_ID };"
+
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
+            pass
+        post_process = self._engine._handle_save_new_continent(
+            events.SaveNewContinentEvent(new_continent))
+
+        response = list(post_process)
+        self.assertEqual(len(response), 1, "Failed to only save new continent.")
+        only_response = response[0]
+        self.assertEqual(type(only_response), events.ContinentSavedEvent,
+                         "Failed to yield a new continent saved event.")
+        self.assertEqual(only_response.continent(), new_continent,
+                         "Failed to save the correct continent.")
+
+        cursor = self._engine._connection.execute(delete_continent_injection)
+        self._engine._connection.commit()
+
+    def test_do_not_save_new_continent_with_duplicate_id(self):
+        CONTINENT_ID = 1
+        CONTINENT_CODE = "AF"
+        CONTINENT_NAME = "Africa"
+
+        duplicate_continent = events.Continent(CONTINENT_ID, CONTINENT_CODE, CONTINENT_NAME)
+
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
+            pass
+        post_process = self._engine._handle_save_new_continent(
+            events.SaveNewContinentEvent(duplicate_continent))
+
+        response = list(post_process)
+        self.assertEqual(len(response), 1, "Failed to only not save new continent.")
+        only_response = response[0]
+        self.assertEqual(type(only_response), events.SaveContinentFailedEvent,
+                         "Failed to yield a save continent failed event.")
 
 if __name__ == '__main__':
     unittest.main()

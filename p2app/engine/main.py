@@ -27,8 +27,14 @@ class Engine:
             events.OpenDatabaseEvent: self._handle_open_database,
             events.CloseDatabaseEvent: self._handle_close_database,
             events.StartContinentSearchEvent: self._handle_search_continents,
-            events.LoadContinentEvent: self._handle_load_continent
+            events.LoadContinentEvent: self._handle_load_continent,
+            events.SaveNewContinentEvent: self._handle_save_new_continent,
         }
+
+    def __del__(self):
+        """Closes the connection to the database file."""
+        if self._connection:
+            self._connection.close()
 
     def process_event(self, event):
         """A generator function that processes one event sent from the user interface,
@@ -100,6 +106,8 @@ class Engine:
         for row in cursor:
             yield events.ContinentSearchResultEvent(events.Continent(*row))
 
+        cursor.close()
+
     def _handle_load_continent(self, event: events.LoadContinentEvent) \
             -> Generator[events.ContinentLoadedEvent]:
         """Loads a continent by its ID."""
@@ -109,3 +117,26 @@ class Engine:
                        {"id": event.continent_id()})
         continent = events.Continent(*cursor.fetchone())
         yield events.ContinentLoadedEvent(continent)
+        cursor.close()
+
+    def _handle_save_new_continent(self, event: events.SaveNewContinentEvent) \
+            -> Generator[Union[events.ContinentSavedEvent, events.SaveContinentFailedEvent]]:
+        """Saves a new continent to the database."""
+
+        continent_id, code, name = event.continent()
+        cursor = self._connection.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO continent (continent_id, continent_code, name)"
+                "   VALUES (:id, :code, :name)",
+                { "id": continent_id, "code": code, "name": name })
+
+        except sqlite3.IntegrityError:
+            yield events.SaveContinentFailedEvent("Continent ID duplicated.")
+
+        else:
+            yield events.ContinentSavedEvent(event.continent())
+
+        finally:
+            self._connection.commit()
+            cursor.close()
