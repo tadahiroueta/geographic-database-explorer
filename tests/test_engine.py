@@ -215,5 +215,49 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(type(only_response), events.SaveContinentFailedEvent,
                          "Failed to yield a save continent failed event.")
 
+    def test_save_continent(self):
+        CONTINENT_ID = 1
+        CONTINENT_CODE = "AF"
+        CONTINENT_NAME = "Africa"
+        MODIFIED_CODE = "FA"
+        MODIFIED_NAME = "Modified Africa"
+
+        original_continent = events.Continent(CONTINENT_ID, CONTINENT_CODE, CONTINENT_NAME)
+        modified_continent = events.Continent(CONTINENT_ID, MODIFIED_CODE, MODIFIED_NAME)
+
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
+            pass
+        post_process = self._engine._handle_save_continent(
+            events.SaveContinentEvent(modified_continent))
+
+        response = list(post_process)
+        self.assertEqual(len(response), 1, "Failed to only save modified continent.")
+        only_response = response[0]
+        self.assertEqual(type(only_response), events.ContinentSavedEvent,
+                         "Failed to yield a modified continent saved event.")
+        self.assertEqual(only_response.continent(), modified_continent,
+                         "Failed to save the correct continent.")
+
+        for _ in self._engine._handle_save_continent(events.SaveContinentEvent(original_continent)):
+            pass
+
+    def test_do_not_save_continent_with_new_id(self):
+        CONTINENT_ID = 10
+        CONTINENT_CODE = "ZZ"
+        CONTINENT_NAME = "New Continent"
+
+        new_continent = events.Continent(CONTINENT_ID, CONTINENT_CODE, CONTINENT_NAME)
+
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
+            pass
+        post_process = self._engine._handle_save_continent(
+            events.SaveContinentEvent(new_continent))
+
+        response = list(post_process)
+        self.assertEqual(len(response), 1, "Failed to only not save new continent.")
+        only_response = response[0]
+        self.assertEqual(type(only_response), events.SaveContinentFailedEvent,
+                         "Failed to yield a save continent failed event.")
+
 if __name__ == '__main__':
     unittest.main()

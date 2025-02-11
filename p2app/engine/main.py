@@ -6,10 +6,11 @@
 # An object that represents the engine of the application.
 
 import sqlite3
+from tkinter.font import names
 from typing import Generator, Union
 
 import p2app.events as events
-from p2app.events import QuitInitiatedEvent
+from p2app.events import QuitInitiatedEvent, ContinentSavedEvent, SaveContinentFailedEvent
 
 
 class Engine:
@@ -29,6 +30,7 @@ class Engine:
             events.StartContinentSearchEvent: self._handle_search_continents,
             events.LoadContinentEvent: self._handle_load_continent,
             events.SaveNewContinentEvent: self._handle_save_new_continent,
+            events.SaveContinentEvent: self._handle_save_continent,
         }
 
     def __del__(self):
@@ -140,3 +142,28 @@ class Engine:
         finally:
             self._connection.commit()
             cursor.close()
+
+    def _handle_save_continent(self, event: events.SaveContinentEvent) \
+        -> Generator[Union[ContinentSavedEvent, SaveContinentFailedEvent]]:
+        """Edits a continent in the database."""
+
+        continent_id, code, name = event.continent()
+        cursor = self._connection.cursor()
+
+        cursor.execute("SELECT continent_id FROM continent WHERE continent_id = :id",
+                       { "id": continent_id })
+
+        if not cursor.fetchone():
+            yield events.SaveContinentFailedEvent("Id does not match any continent.")
+            return
+
+        cursor.execute(
+            "UPDATE continent "
+            "   SET continent_code = :code, name = :name"
+            "   WHERE continent_id = :id",
+            { "id": continent_id, "code": code, "name": name })
+
+        yield events.ContinentSavedEvent(event.continent())
+
+        self._connection.commit()
+        cursor.close()
