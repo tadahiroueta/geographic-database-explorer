@@ -60,7 +60,7 @@ class MyTestCase(unittest.TestCase):
 
         for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine._handle_search_continent(
+        post_process = self._engine._handle_search_continents(
             events.StartContinentSearchEvent(CONTINENT_CODE, CONTINENT_NAME))
 
         response = list(post_process)
@@ -82,7 +82,7 @@ class MyTestCase(unittest.TestCase):
 
         for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine._handle_search_continent(
+        post_process = self._engine._handle_search_continents(
             events.StartContinentSearchEvent(CONTINENT_CODE, ""))
 
         response = list(post_process)
@@ -104,7 +104,7 @@ class MyTestCase(unittest.TestCase):
 
         for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine._handle_search_continent(
+        post_process = self._engine._handle_search_continents(
             events.StartContinentSearchEvent("", CONTINENT_NAME))
 
         response = list(post_process)
@@ -124,31 +124,32 @@ class MyTestCase(unittest.TestCase):
         CONTINENT_2_CODE = "SA"
         CONTINENT_2_NAME = "South America"
 
-        correct_search_result_1 = events.ContinentSearchResultEvent(
-            events.Continent(continent_id=CONTINENT_1_ID, continent_code=CONTINENT_1_CODE,
-                             name=CONTINENT_1_NAME))
-
-        correct_search_result_2 = events.ContinentSearchResultEvent(
-            events.Continent(continent_id=CONTINENT_2_ID,
-                                                  continent_code=CONTINENT_2_CODE,
-                                                  name=CONTINENT_2_NAME))
+        correct_continent_1 = events.Continent(continent_id=CONTINENT_1_ID,
+                                               continent_code=CONTINENT_1_CODE,
+                                               name=CONTINENT_1_NAME)
+        correct_continent_2 = events.Continent(continent_id=CONTINENT_2_ID,
+                                               continent_code=CONTINENT_2_CODE,
+                                               name=CONTINENT_2_NAME)
 
         for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine._handle_search_continent(
+        post_process = self._engine._handle_search_continents(
             events.StartContinentSearchEvent("", "America"))
 
         response = list(post_process)
         self.assertEqual(len(response), 2, "Failed to find exactly two continents.")
-        self.assertIn(correct_search_result_1, response, "Failed to find North America.")
-        self.assertIn(correct_search_result_2, response, "Failed to find South America.")
+        first_response, second_response = response
+        self.assertEqual(first_response.continent(), correct_continent_1,
+                         "Failed to find North America.")
+        self.assertEqual(second_response.continent(), correct_continent_2,
+                      "Failed to find South America.")
 
     def test_search_no_continents(self):
         NON_EXISTING_CONTINENT_CODE = "ZZ"
 
         for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine._handle_search_continent(
+        post_process = self._engine._handle_search_continents(
             events.StartContinentSearchEvent(NON_EXISTING_CONTINENT_CODE, ""))
 
         response = list(post_process)

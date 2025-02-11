@@ -25,7 +25,8 @@ class Engine:
         self._handlers = {
             events.QuitInitiatedEvent: self._handle_quit,
             events.OpenDatabaseEvent: self._handle_open_database,
-            events.CloseDatabaseEvent: self._handle_close_database
+            events.CloseDatabaseEvent: self._handle_close_database,
+            events.StartContinentSearchEvent: self._handle_search_continents
         }
 
     def process_event(self, event):
@@ -70,4 +71,34 @@ class Engine:
 
         self._connection.close()
         yield events.DatabaseClosedEvent()
+        return
+
+    def _handle_search_continents(self, event: events.StartContinentSearchEvent) \
+            -> Generator[events.ContinentSearchResultEvent]:
+        """Searches for continents by code and name."""
+
+        cursor = self._connection.cursor()
+
+        code = event.continent_code()
+        name = event.name()
+
+        if code and name:
+            cursor.execute(
+                "SELECT * FROM continent"
+                "    WHERE continent_code = :code AND name LIKE :formatted_name",
+                { "code": event.continent_code(), "formatted_name": f"%{ event.name() }%" })
+
+        elif code:
+            cursor.execute("SELECT * FROM continent WHERE continent_code = :code",
+                           { "code": event.continent_code() })
+
+        elif name:
+            cursor.execute("SELECT * FROM continent WHERE name LIKE :formatted_name",
+                           { "formatted_name": f"%{ event.name() }%" })
+
+        else:
+            cursor.execute("SELECT * FROM continent")
+
+        for row in cursor:
+            yield events.ContinentSearchResultEvent(events.Continent(*row))
         return
