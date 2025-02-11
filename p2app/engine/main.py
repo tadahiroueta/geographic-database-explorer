@@ -6,6 +6,7 @@
 # An object that represents the engine of the application.
 
 import sqlite3
+from typing import Generator, Union
 
 import p2app.events as events
 from p2app.events import QuitInitiatedEvent
@@ -21,32 +22,44 @@ class Engine:
     def __init__(self):
         """Initializes the engine"""
         self._connection = None
-
+        self._handlers = {
+            events.QuitInitiatedEvent: self._handle_quit,
+            events.OpenDatabaseEvent: self._handle_open_database,
+            events.CloseDatabaseEvent: self._handle_close_database
+        }
 
     def process_event(self, event):
         """A generator function that processes one event sent from the user interface,
         yielding zero or more events in response."""
-
         event_type = type(event)
 
-        # application-level events
-        if event_type == events.QuitInitiatedEvent:
-            yield events.EndApplicationEvent()
+        if event_type not in self._handlers.keys():
+            yield from ()
             return
 
-        if event_type == events.OpenDatabaseEvent:
-            if not event.path().exists():
-                yield events.DatabaseOpenFailedEvent("Database does not exist.")
-                return
+        yield from self._handlers[type(event)](event)
 
-            try:
-                self._connection = sqlite3.connect(event.path())
-                yield events.DatabaseOpenedEvent(event.path())
-            except sqlite3.Error as e:
-                yield events.DatabaseOpenFailedEvent("Failed to open database.")
+    # event handlers
+
+    # application-level events
+    def _handle_quit(self, event) -> Generator[events.EndApplicationEvent]:
+        yield events.EndApplicationEvent()
+        return
+
+    def _handle_open_database(self, event) -> Generator[Union[events.DatabaseOpenedEvent,
+                                                              events.DatabaseOpenFailedEvent]]:
+        if not event.path().exists():
+            yield events.DatabaseOpenFailedEvent("Database does not exist.")
             return
 
-        if event_type == events.CloseDatabaseEvent:
-            self._connection.close()
-            yield events.DatabaseClosedEvent()
-            return
+        try:
+            self._connection = sqlite3.connect(event.path())
+            yield events.DatabaseOpenedEvent(event.path())
+        except sqlite3.Error as e:
+            yield events.DatabaseOpenFailedEvent("Failed to open database.")
+        return
+
+    def _handle_close_database(self, event) -> Generator[events.DatabaseClosedEvent]:
+        self._connection.close()
+        yield events.DatabaseClosedEvent()
+        return

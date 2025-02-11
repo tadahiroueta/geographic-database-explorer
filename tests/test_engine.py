@@ -18,7 +18,7 @@ class MyTestCase(unittest.TestCase):
         cls._engine = engine.Engine()
 
     def test_open_database(self):
-        post_process = self._engine.process_event(events.OpenDatabaseEvent(DATABASE_PATH))
+        post_process = self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH))
         self.assertEqual(type(next(post_process)), events.DatabaseOpenedEvent,
                          "Failed to open database.")
 
@@ -27,22 +27,22 @@ class MyTestCase(unittest.TestCase):
 
         non_existent_database_path = pathlib.Path(NON_EXISTENT_DATABASE_FILENAME)
 
-        post_process = self._engine.process_event(
+        post_process = self._engine._handle_open_database(
             events.OpenDatabaseEvent(non_existent_database_path))
         self.assertEqual(type(next(post_process)), events.DatabaseOpenFailedEvent,
                          "Opened non existent database.")
 
     def test_quit(self):
-        post_process = self._engine.process_event(events.QuitInitiatedEvent())
+        post_process = self._engine._handle_quit(events.QuitInitiatedEvent())
         self.assertEqual(type(next(post_process)), events.EndApplicationEvent,
                          "Failed to quit.")
 
     def test_close_database(self):
         RANDOM_INJECTION = "SELECT * FROM sqlite_master;"
 
-        for _ in self._engine.process_event(events.OpenDatabaseEvent(DATABASE_PATH)):
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine.process_event(events.CloseDatabaseEvent())
+        post_process = self._engine._handle_close_database(events.CloseDatabaseEvent())
 
         self.assertEqual(type(next(post_process)), events.DatabaseClosedEvent,
                          "Failed to send event for closing database.")
@@ -58,9 +58,9 @@ class MyTestCase(unittest.TestCase):
         correct_continent = events.Continent(continent_id=CONTINENT_ID,
                                              continent_code=CONTINENT_CODE, name=CONTINENT_NAME)
 
-        for _ in self._engine.process_event(events.OpenDatabaseEvent(DATABASE_PATH)):
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine.process_event(
+        post_process = self._engine._handle_search_continent(
             events.StartContinentSearchEvent(CONTINENT_CODE, CONTINENT_NAME))
 
         response = list(post_process)
@@ -80,9 +80,9 @@ class MyTestCase(unittest.TestCase):
         correct_continent = events.Continent(continent_id=CONTINENT_ID,
                                              continent_code=CONTINENT_CODE, name=CONTINENT_NAME)
 
-        for _ in self._engine.process_event(events.OpenDatabaseEvent(DATABASE_PATH)):
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine.process_event(
+        post_process = self._engine._handle_search_continent(
             events.StartContinentSearchEvent(CONTINENT_CODE, ""))
 
         response = list(post_process)
@@ -102,9 +102,9 @@ class MyTestCase(unittest.TestCase):
         correct_continent = events.Continent(continent_id=CONTINENT_ID,
                                              continent_code=CONTINENT_CODE, name=CONTINENT_NAME)
 
-        for _ in self._engine.process_event(events.OpenDatabaseEvent(DATABASE_PATH)):
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine.process_event(
+        post_process = self._engine._handle_search_continent(
             events.StartContinentSearchEvent("", CONTINENT_NAME))
 
         response = list(post_process)
@@ -133,9 +133,9 @@ class MyTestCase(unittest.TestCase):
                                                   continent_code=CONTINENT_2_CODE,
                                                   name=CONTINENT_2_NAME))
 
-        for _ in self._engine.process_event(events.OpenDatabaseEvent(DATABASE_PATH)):
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine.process_event(
+        post_process = self._engine._handle_search_continent(
             events.StartContinentSearchEvent("", "America"))
 
         response = list(post_process)
@@ -146,9 +146,9 @@ class MyTestCase(unittest.TestCase):
     def test_search_no_continents(self):
         NON_EXISTING_CONTINENT_CODE = "ZZ"
 
-        for _ in self._engine.process_event(events.OpenDatabaseEvent(DATABASE_PATH)):
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
             pass
-        post_process = self._engine.process_event(
+        post_process = self._engine._handle_search_continent(
             events.StartContinentSearchEvent(NON_EXISTING_CONTINENT_CODE, ""))
 
         response = list(post_process)
