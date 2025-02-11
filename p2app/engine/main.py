@@ -35,6 +35,10 @@ class Engine:
             events.LoadCountryEvent: self._handle_load_country,
             events.SaveNewCountryEvent: self._handle_save_new_country,
             events.SaveCountryEvent: self._handle_save_country,
+            events.StartRegionSearchEvent: self._handle_search_regions,
+            events.LoadRegionEvent: self._handle_load_region,
+            events.SaveNewRegionEvent: self._handle_save_new_region,
+            events.SaveRegionEvent: self._handle_save_region
         }
 
     def __del__(self):
@@ -261,6 +265,133 @@ class Engine:
               "wikipedia_link": wikipedia_link, "keywords": keywords })
 
         yield events.CountrySavedEvent(event.country())
+
+        self._connection.commit()
+        cursor.close()
+
+    def _handle_search_regions(self, event: events.StartRegionSearchEvent) \
+            -> Generator[events.RegionSearchResultEvent]:
+        """Searches for regions by region code, local code, or name."""
+
+        cursor = self._connection.cursor()
+
+        region_code = event.region_code().upper() if event.region_code() else None
+        local_code = event.local_code().upper() if event.local_code() else None
+        name = event.name()
+
+        if region_code and local_code and name:
+            cursor.execute(
+                "SELECT * FROM region"
+                "   WHERE region_code = :region_code"
+                "   AND local_code = :local_code"
+                "   AND name LIKE :formatted_name",
+                { "region_code": region_code, "local_code": local_code,
+                  "formatted_name": f"%{ name }%" })
+
+        elif region_code and local_code:
+            cursor.execute(
+                "SELECT * FROM region"
+                "   WHERE region_code = :region_code"
+                "   AND local_code = :local_code",
+                { "region_code": region_code, "local_code": local_code })
+
+        elif region_code and name:
+            cursor.execute(
+                "SELECT * FROM region"
+                "   WHERE region_code = :region_code"
+                "   AND name LIKE :formatted_name",
+                { "region_code": region_code, "formatted_name": f"%{ name }%" })
+
+        elif local_code and name:
+            cursor.execute(
+                "SELECT * FROM region"
+                "   WHERE local_code = :local_code"
+                "   AND name LIKE :formatted_name",
+                { "local_code": local_code, "formatted_name": f"%{ name }%" })
+
+        elif region_code:
+            cursor.execute("SELECT * FROM region WHERE region_code = :region_code",
+                           { "region_code": region_code })
+
+        elif local_code:
+            cursor.execute("SELECT * FROM region WHERE local_code = :local_code",
+                           { "local_code": local_code })
+
+        elif name:
+            cursor.execute("SELECT * FROM region WHERE name LIKE :formatted_name",
+                           { "formatted_name": f"%{ name }%" })
+
+        else:
+            cursor.execute("SELECT * FROM region")
+
+        for row in cursor:
+            yield events.RegionSearchResultEvent(events.Region(*row))
+
+        cursor.close()
+
+    def _handle_load_region(self, event: events.LoadRegionEvent) \
+            -> Generator[events.RegionLoadedEvent]:
+        """Loads a region by its ID."""
+
+        cursor = self._connection.cursor()
+        cursor.execute("SELECT * FROM region WHERE region_id = :id",
+                       { "id": event.region_id() })
+        region = events.Region(*cursor.fetchone())
+        yield events.RegionLoadedEvent(region)
+        cursor.close()
+
+    def _handle_save_new_region(self, event: events.SaveNewRegionEvent) \
+            -> Generator[Union[events.RegionSavedEvent, events.SaveRegionFailedEvent]]:
+        """Saves a new region to the database."""
+
+        (region_id, region_code, local_code, name,
+         continent_id, country_id, wikipedia_link, keywords) = event.region()
+        cursor = self._connection.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO region (region_id, region_code, local_code, name,"
+                "                    continent_id, country_id, wikipedia_link, keywords)"
+                "   VALUES (:id, :region_code, :local_code, :name,"
+                "           :continent_id, :country_id, :wikipedia_link, :keywords)",
+                { "id": region_id, "region_code": region_code, "local_code": local_code,
+                  "name": name, "continent_id": continent_id, "country_id": country_id,
+                  "wikipedia_link": wikipedia_link, "keywords": keywords })
+
+        except sqlite3.IntegrityError:
+            yield events.SaveRegionFailedEvent("Region ID duplicated.")
+
+        else:
+            yield events.RegionSavedEvent(event.region())
+
+        finally:
+            self._connection.commit()
+            cursor.close()
+
+    def _handle_save_region(self, event: events.SaveRegionEvent) \
+            -> Generator[Union[events.RegionSavedEvent, events.SaveRegionFailedEvent]]:
+        """Edits a region in the database."""
+
+        (region_id, region_code, local_code, name,
+         continent_id, country_id, wikipedia_link, keywords) = event.region()
+        cursor = self._connection.cursor()
+
+        cursor.execute("SELECT region_id FROM region WHERE region_id = :id",
+                       { "id": region_id })
+        if not cursor.fetchone():
+            yield events.SaveRegionFailedEvent("Id does not match any region.")
+            return
+
+        cursor.execute(
+            "UPDATE region "
+            "   SET region_code = :region_code, local_code = :local_code, name = :name,"
+            "       continent_id = :continent_id, country_id = :country_id,"
+            "       wikipedia_link = :wikipedia_link, keywords = :keywords"
+            "   WHERE region_id = :id",
+            { "id": region_id, "region_code": region_code, "local_code": local_code,
+              "name": name, "continent_id": continent_id, "country_id": country_id,
+              "wikipedia_link": wikipedia_link, "keywords": keywords })
+
+        yield events.RegionSavedEvent(event.region())
 
         self._connection.commit()
         cursor.close()
