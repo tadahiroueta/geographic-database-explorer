@@ -155,5 +155,24 @@ class MyTestCase(unittest.TestCase):
         response = list(post_process)
         self.assertEqual(len(response), 0, "Found a non-existent continent.")
 
+    def test_load_continents(self):
+        CONTINENT_ID = 1
+        CONTINENT_CODE = "AF"
+        CONTINENT_NAME = "Africa"
+
+        correct_continent = events.Continent(CONTINENT_ID, CONTINENT_CODE, CONTINENT_NAME)
+
+        for _ in self._engine._handle_open_database(events.OpenDatabaseEvent(DATABASE_PATH)):
+            pass
+        post_process = self._engine._handle_load_continent(events.LoadContinentEvent(CONTINENT_ID))
+
+        response = list(post_process)
+        self.assertEqual(len(response), 1, "Failed to only load continent.")
+        only_response = response[0]
+        self.assertEqual(type(only_response), events.ContinentLoadedEvent,
+                         "Failed to yield a continent loaded event.")
+        self.assertEqual(only_response.continent(), correct_continent,
+                         "Failed to load the correct continent.")
+
 if __name__ == '__main__':
     unittest.main()

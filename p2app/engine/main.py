@@ -99,3 +99,13 @@ class Engine:
 
         for row in cursor:
             yield events.ContinentSearchResultEvent(events.Continent(*row))
+
+    def _handle_load_continent(self, event: events.LoadContinentEvent) \
+            -> Generator[events.ContinentLoadedEvent]:
+        """Loads a continent by its ID."""
+
+        cursor = self._connection.cursor()
+        cursor.execute("SELECT * FROM continent WHERE continent_id = :id",
+                       {"id": event.continent_id()})
+        continent = events.Continent(*cursor.fetchone())
+        yield events.ContinentLoadedEvent(continent)
