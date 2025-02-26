@@ -3,7 +3,6 @@
 /pyvenv.cfg
 /.idea
 __pycache__
-*.db
 *.db-journal
 /venv
 *.bundle
