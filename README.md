@@ -14,7 +14,7 @@
 
 SQL queries are automatically generated with SQLite based on the user's interaction with the GUI.
 
-![GUI](https://github.com/tadahiroueta/bridge-america/blob/main/screenshots/edit-gb.png)
+![GUI](https://github.com/tadahiroueta/geographic-database-explorer/blob/main/screenshots/edit-gb.png)
 
       > User interface to interact with the database
 
