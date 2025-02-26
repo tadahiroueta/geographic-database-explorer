@@ -7,3 +7,6 @@ __pycache__
 /venv
 *.bundle
 *.coverage
+.noai
+prepare_submission.py
+schema.sql
